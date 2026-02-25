@@ -19,7 +19,7 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 | Kanban Board | 4 columns from tasks/*.md: Todo / In Progress / Done / Blocked |
 | Sub-Agent Feed | Live list of active OpenClaw sessions + kill button |
 | Service Health | HTTP ping grid for all running services |
-| Claw Status | Last heartbeat, active session count, today's summary |
+| Claw Status | Last heartbeat, active session count |
 | Auto-refresh | Every 10s, no manual reload needed |
 
 ### V1.1
@@ -38,7 +38,6 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 | Blocked tasks | `tasks/blocked.md` |
 | Sub-agents | OpenClaw sessions API |
 | Service health | HTTP health checks (3000, 3002, 3003, 8080…) |
-| Heartbeat | `memory/heartbeat-state.json` |
 
 ---
 
@@ -76,7 +75,7 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 GET  /api/tasks           → All columns (parsed from tasks/*.md)
 GET  /api/agents          → Active sub-agents
 GET  /api/health          → All service statuses
-GET  /api/status          → Claw heartbeat + session count
+GET  /api/status          → Active session count
 POST /api/tasks/{id}/move → Move task to new column
 POST /api/agents/{id}/kill → Terminate sub-agent
 ```
