@@ -73,25 +73,22 @@
             font-size: 0.75rem;
         }
 
-        /* Mobile-first: horizontal scroll for kanban */
+        /* Mobile-first: vertical stacking for kanban */
         .kanban-board {
             display: flex;
-            gap: 0.75rem;
-            overflow-x: auto;
-            padding-bottom: 0.5rem;
-            -webkit-overflow-scrolling: touch;
+            flex-direction: column;
+            gap: 1rem;
         }
 
         .kanban-board > div {
-            min-width: 280px;
-            flex-shrink: 0;
+            width: 100%;
         }
 
         @media (min-width: 768px) {
             .kanban-board {
                 display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                overflow-x: visible;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
             }
         }
 
@@ -131,6 +128,16 @@
     <section>
         <h2 class="text-sm font-semibold text-gray-400 mb-2">Tasks</h2>
         <div class="kanban-board">
+            <!-- Scheduled / Cron Jobs -->
+            <div class="kanban-col col-scheduled p-3 mt-4">
+                <h3 class="font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+                    <span>⏰</span>
+                    Scheduled / Cron Jobs
+                    <span class="text-xs text-gray-500" id="scheduledCount">(0)</span>
+                </h3>
+                <div id="scheduledTasks"></div>
+            </div>
+
             <!-- Todo -->
             <div class="kanban-col col-todo p-3">
                 <h3 class="font-semibold text-red-400 mb-3 flex items-center gap-2">
@@ -210,6 +217,7 @@
 
         function renderTasks(tasks) {
             const columns = {
+                scheduled: { el: 'scheduledTasks', count: 'scheduledCount' },
                 todo: { el: 'todoTasks', count: 'todoCount' },
                 in_progress: { el: 'inProgressTasks', count: 'inProgressCount' },
                 done: { el: 'doneTasks', count: 'doneCount' },
@@ -220,7 +228,18 @@
                 const taskList = tasks[key] || [];
                 document.getElementById(config.count).textContent = `(${taskList.length})`;
                 document.getElementById(config.el).innerHTML = taskList.length
-                    ? taskList.map(t => `<div class="task-card text-sm">${t.title}</div>`).join('')
+                    ? taskList.map(t => `
+                        <div class="task-card text-sm">
+                            <div class="font-medium">${t.title || 'Untitled'}</div>
+                            <div class="text-xs text-gray-400 mt-1">
+                                <span class="text-blue-400">${t.model || 'unknown'}</span>
+                                <span class="mx-1">·</span>
+                                <span>${t.age || '?'}</span>
+                                ${t.tokens ? `<span class="mx-1">·</span><span>${t.tokens.toLocaleString()} tokens</span>` : ''}
+                            </div>
+                            ${t.channel ? `<div class="text-xs text-gray-500 mt-1">📱 ${t.channel}</div>` : ''}
+                        </div>
+                    `).join('')
                     : '<p class="text-gray-600 text-sm">No tasks</p>';
             }
         }
@@ -268,3 +287,4 @@
     </script>
 </body>
 </html>
+.col-scheduled { border-top: 3px solid #06b6d4; }

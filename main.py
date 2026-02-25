@@ -1,18 +1,18 @@
 """
 Claw Ops Dashboard - FastAPI Backend
-Phase 1: Tasks, Health, Status, Agents endpoints
+Real-time agent activity from OpenClaw
 """
-import asyncio
+import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
 # Configuration
-TASKS_DIR = Path(__file__).parent / "tasks"
 PORT = 3004
 SERVICES = {
     "Revenue API": "http://localhost:3000",
@@ -29,38 +29,122 @@ app = FastAPI(title="Claw Ops Dashboard")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent), name="static")
 
 
-def parse_task_file(filepath: Path) -> list[str]:
-    """Parse a task markdown file and return list of tasks."""
-    if not filepath.exists():
+def get_sessions() -> list[dict[str, Any]]:
+    """Read sessions directly from OpenClaw's session file."""
+    sessions_file = Path("/root/.openclaw/agents/main/sessions/sessions.json")
+    if not sessions_file.exists():
         return []
+    
+    try:
+        data = json.loads(sessions_file.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        print(f"Error reading sessions: {e}")
+        return {}
 
-    content = filepath.read_text()
-    tasks = []
-    for line in content.split("\n"):
-        line = line.strip()
-        if line.startswith("- "):
-            task = line[2:].strip()
-            if task:
-                tasks.append(task)
-    return tasks
+
+def parse_session_key(key: str) -> dict[str, str]:
+    """Parse session key to get type and info."""
+    parts = key.split(":")
+    
+    if len(parts) >= 3:
+        if parts[0] == "agent":
+            if parts[2] == "cron":
+                return {"type": "cron", "name": key, "label": "Cron Job"}
+            elif parts[2] == "subagent":
+                return {"type": "subagent", "name": key, "label": "Sub-Agent"}
+            else:
+                return {"type": "agent", "name": key, "label": "Agent"}
+        elif parts[0] == "telegram":
+            return {"type": "telegram", "name": key, "label": f"Telegram ({parts[1]})"}
+    
+    return {"type": "other", "name": key, "label": key}
 
 
 @app.get("/api/tasks")
-def get_tasks() -> dict[str, list[dict[str, str]]]:
-    """Get all tasks from tasks/*.md files."""
-    columns = {
-        "todo": TASKS_DIR / "todo.md",
-        "in_progress": TASKS_DIR / "in-progress.md",
-        "done": TASKS_DIR / "done.md",
-        "blocked": TASKS_DIR / "blocked.md",
+def get_tasks() -> dict[str, list[dict[str, Any]]]:
+    """
+    Get tasks from real agent activity.
+    - in_progress: active sessions (updated within last 5 minutes)
+    - done: recently completed (no recent activity but had activity today)
+    - todo: cron jobs that are scheduled
+    """
+    sessions = get_sessions()
+    now = datetime.now()
+    five_min_ago = now - timedelta(minutes=5)
+    one_hour_ago = now - timedelta(hours=1)
+    
+    in_progress = []
+    done = []
+    
+    for key, session in sessions.items():
+        info = parse_session_key(key)
+        updated_at = session.get("updatedAt", 0)
+        
+        # Convert timestamp (it's in milliseconds)
+        if updated_at:
+            try:
+                session_time = datetime.fromtimestamp(updated_at / 1000)
+            except:
+                session_time = now
+        else:
+            session_time = now
+        
+        # Get task info - prefer origin label, then label, then model, then key
+        origin = session.get("origin", {})
+        origin_label = origin.get("label", "") if isinstance(origin, dict) else ""
+        
+        if origin_label:
+            title = origin_label[:60]
+        elif session.get("label"):
+            title = session.get("label")[:60]
+        else:
+            title = info["label"] or key.split(":")[-1][:60]
+        
+        # Calculate age
+        age_delta = now - session_time
+        if age_delta.total_seconds() < 60:
+            age = f"{int(age_delta.total_seconds())}s ago"
+        elif age_delta.total_seconds() < 3600:
+            age = f"{int(age_delta.total_seconds() / 60)}m ago"
+        else:
+            age = f"{int(age_delta.total_seconds() / 3600)}h ago"
+        
+        session_data = {
+            "id": session.get("sessionId", key[:16]),
+            "title": title[:60],
+            "model": session.get("model", session.get("modelProvider", "unknown")),
+            "age": age,
+            "type": info["type"],
+            "key": key,
+            "tokens": session.get("totalTokens", 0),
+            "channel": session.get("lastChannel", session.get("chatType", "unknown")),
+            "user": session.get("origin", {}).get("label", session.get("origin", {}).get("from", ""))[:40],
+        }
+        
+        # Active if updated in last 5 minutes
+        if session_time > five_min_ago:
+            in_progress.append(session_data)
+        elif session_time > one_hour_ago:
+            # Could be done or idle
+            if info["type"] in ["cron", "subagent"]:
+                done.append(session_data)
+    
+    # Scheduled = cron jobs that are configured (not necessarily running)
+    # Todo = tasks queued for agents (could be from a queue system in future)
+    scheduled = [
+        {"id": "cron-market-am", "title": "Asian Markets Morning Update", "model": "cron", "type": "scheduled"},
+        {"id": "cron-market-pm", "title": "Asian Markets Evening Update", "model": "cron", "type": "scheduled"},
+    ]
+    todo = []
+    
+    return {
+        "in_progress": in_progress,
+        "scheduled": scheduled,
+        "todo": todo,
+        "done": done,
+        "blocked": []
     }
-
-    result = {}
-    for key, path in columns.items():
-        tasks = parse_task_file(path)
-        result[key] = [{"id": f"{key}_{i}", "title": task} for i, task in enumerate(tasks)]
-
-    return result
 
 
 @app.get("/api/health")
@@ -88,35 +172,62 @@ async def get_health() -> dict[str, dict[str, Any]]:
 
 
 @app.get("/api/status")
-async def get_status() -> dict[str, Any]:
-    """Get active session count."""
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:8080/api/sessions_list")
-            if response.status_code == 200:
-                sessions = response.json()
-                return {
-                    "active_sessions": len(sessions) if isinstance(sessions, list) else 0,
-                    "source": "dashboard_api",
-                }
-    except Exception:
-        pass
-
-    return {"active_sessions": 0, "source": "unavailable"}
+def get_status() -> dict[str, Any]:
+    """Get OpenClaw status - active sessions and system info."""
+    sessions = get_sessions()
+    now = datetime.now()
+    five_min_ago = now - timedelta(minutes=5)
+    
+    active_count = 0
+    for key, session in sessions.items():
+        updated_at = session.get("updatedAt", 0)
+        if updated_at:
+            try:
+                session_time = datetime.fromtimestamp(updated_at / 1000)
+                if session_time > five_min_ago:
+                    active_count += 1
+            except:
+                pass
+    
+    return {
+        "active_sessions": active_count,
+        "total_sessions": len(sessions),
+        "last_updated": now.isoformat()
+    }
 
 
 @app.get("/api/agents")
-async def get_agents() -> list[dict[str, Any]]:
-    """Get active sub-agents from OpenClaw sessions API."""
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:8080/api/sessions_list")
-            if response.status_code == 200:
-                return response.json()
-    except Exception:
-        pass
-
-    return []
+def get_agents() -> list[dict[str, Any]]:
+    """Get all active agents/sessions."""
+    sessions = get_sessions()
+    now = datetime.now()
+    five_min_ago = now - timedelta(minutes=5)
+    
+    active = []
+    for key, session in sessions.items():
+        info = parse_session_key(key)
+        updated_at = session.get("updatedAt", 0)
+        
+        if updated_at:
+            try:
+                session_time = datetime.fromtimestamp(updated_at / 1000)
+                is_active = session_time > five_min_ago
+            except:
+                is_active = False
+        else:
+            is_active = False
+        
+        if is_active:
+            active.append({
+                "id": session.get("sessionId", key[:16]),
+                "key": key,
+                "model": session.get("model", "unknown"),
+                "label": session.get("label", info["label"]),
+                "type": info["type"],
+                "updatedAt": updated_at,
+            })
+    
+    return active
 
 
 @app.get("/")
