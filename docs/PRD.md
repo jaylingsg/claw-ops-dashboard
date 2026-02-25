@@ -23,8 +23,7 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 | Auto-refresh | Every 10s, no manual reload needed |
 
 ### V1.1
-- Move/complete tasks from UI (writes back to TODO.md)
-- Resource usage panel (tokens + cost per session)
+- Move/complete tasks from UI (writes back to task files)
 - Filter/search tasks by tag or status
 - PWA manifest (installable on phone)
 
@@ -33,7 +32,10 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 ## Data Sources
 | Data | Source |
 |------|--------|
-| Tasks | `TODO.md` — parsed into kanban columns |
+| Todo tasks | `tasks/todo.md` |
+| In Progress tasks | `tasks/in-progress.md` |
+| Done tasks | `tasks/done.md` |
+| Blocked tasks | `tasks/blocked.md` |
 | Sub-agents | OpenClaw sessions API |
 | Service health | HTTP health checks (3000, 3002, 3003, 8080…) |
 | Heartbeat | `memory/heartbeat-state.json` |
@@ -71,7 +73,7 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 
 ## API Endpoints
 ```
-GET  /api/tasks           → Parsed TODO.md
+GET  /api/tasks           → All columns (parsed from tasks/*.md)
 GET  /api/agents          → Active sub-agents
 GET  /api/health          → All service statuses
 GET  /api/status          → Claw heartbeat + session count
@@ -84,9 +86,14 @@ POST /api/agents/{id}/kill → Terminate sub-agent
 ## File Structure
 ```
 claw-ops-dashboard/
+├── tasks/
+│   ├── todo.md
+│   ├── in-progress.md
+│   ├── done.md
+│   └── blocked.md
 ├── backend/
 │   ├── main.py       ← FastAPI app
-│   ├── tasks.py      ← TODO.md parser
+│   ├── tasks.py      ← tasks/*.md parser
 │   ├── agents.py     ← OpenClaw integration
 │   └── health.py     ← Service health checks
 ├── frontend/
@@ -110,9 +117,8 @@ claw-ops-dashboard/
 ---
 
 ## Open Questions
-1. Task moves — write to TODO.md or separate state DB?
-2. Quant system port — include in health monitor?
-3. Nginx — public with basic auth, or internal-only?
+1. Quant system port — include in health monitor?
+2. Nginx — public with basic auth, or internal-only?
 
 ---
 
