@@ -144,7 +144,7 @@ def get_tasks() -> dict[str, list[dict[str, Any]]]:
     sessions = get_sessions()
     now = datetime.now()
     five_min_ago = now - timedelta(minutes=5)
-    one_hour_ago = now - timedelta(hours=1)
+    one_hour_ago = now - timedelta(minutes=15)
     
     in_progress = []
     done = []
