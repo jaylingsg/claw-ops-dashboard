@@ -16,7 +16,7 @@ Single mobile-first dashboard: see what's running, what's queued, what's broken 
 ### MVP
 | Feature | Description |
 |---------|-------------|
-| Kanban Board | 4 columns from TODO.md: Todo / In Progress / Done / Blocked |
+| Kanban Board | 4 columns from tasks/*.md: Todo / In Progress / Done / Blocked |
 | Sub-Agent Feed | Live list of active OpenClaw sessions + kill button |
 | Service Health | HTTP ping grid for all running services |
 | Claw Status | Last heartbeat, active session count, today's summary |
@@ -110,9 +110,9 @@ claw-ops-dashboard/
 ## Milestones
 | Phase | Deliverables |
 |-------|-------------|
-| 1 — Foundation | FastAPI backend + TODO.md parser + health checks + basic mobile UI live on 3004 |
-| 2 — Ops Features | Sub-agent feed, Claw status panel, task move/complete, auto-refresh |
-| 3 — Polish | Kill sub-agent from UI, PWA manifest, Nginx exposure |
+| 1 — Foundation | FastAPI backend + tasks/*.md parser + health checks + basic mobile UI live on 3004 |
+| 2 — Ops Features | Sub-agent feed + kill button, Claw status panel, task move/complete, auto-refresh |
+| 3 — Polish | Filter/search tasks, PWA manifest, Nginx exposure |
 
 ---
 
