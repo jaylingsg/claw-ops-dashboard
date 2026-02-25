@@ -198,7 +198,7 @@ def get_status() -> dict[str, Any]:
 
 @app.get("/api/agents")
 def get_agents() -> list[dict[str, Any]]:
-    """Get all active agents/sessions with more details."""
+    """Get only active sub-agents (not the main agent session)."""
     sessions = get_sessions()
     now = datetime.now()
     five_min_ago = now - timedelta(minutes=5)
@@ -217,7 +217,11 @@ def get_agents() -> list[dict[str, Any]]:
         else:
             is_active = False
         
-        if is_active:
+        # Only show sub-agents, not the main agent session
+        # Main session is typically "agent:main:main"
+        is_main_session = key == "agent:main:main" or key.startswith("agent:main:main:")
+        
+        if is_active and not is_main_session:
             origin = session.get("origin", {})
             origin_label = origin.get("label", "") if isinstance(origin, dict) else ""
             
