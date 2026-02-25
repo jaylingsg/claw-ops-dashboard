@@ -59,6 +59,7 @@
         .col-in-progress { border-top: 3px solid var(--in-progress); }
         .col-done { border-top: 3px solid var(--done); }
         .col-blocked { border-top: 3px solid var(--blocked); }
+        .col-scheduled { border-top: 3px solid #06b6d4; }
 
         .health-grid {
             display: grid;
@@ -129,7 +130,7 @@
         <h2 class="text-sm font-semibold text-gray-400 mb-2">Tasks</h2>
         <div class="kanban-board">
             <!-- Scheduled / Cron Jobs -->
-            <div class="kanban-col col-scheduled p-3 mt-4">
+            <div class="kanban-col col-scheduled p-3">
                 <h3 class="font-semibold text-cyan-400 mb-3 flex items-center gap-2">
                     <span>⏰</span>
                     Scheduled / Cron Jobs
