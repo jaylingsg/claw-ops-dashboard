@@ -29,7 +29,68 @@ app = FastAPI(title="Claw Ops Dashboard")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent), name="static")
 
 
-def get_sessions() -> list[dict[str, Any]]:
+def get_sessions() -> dict:
+    """Read sessions from OpenClaw's session file."""
+    sessions_file = Path("/root/.openclaw/agents/main/sessions/sessions.json")
+    if not sessions_file.exists():
+        return {}
+    
+    try:
+        data = json.loads(sessions_file.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        print(f"Error reading sessions: {e}")
+        return {}
+
+
+def get_cron_jobs() -> list[dict[str, Any]]:
+    """Read cron jobs from OpenClaw's cron configuration."""
+    cron_file = Path("/root/.openclaw/cron/jobs.json")
+    if not cron_file.exists():
+        return []
+    
+    try:
+        data = json.loads(cron_file.read_text())
+        jobs = data.get("jobs", [])
+        
+        result = []
+        for job in jobs:
+            schedule = job.get("schedule", {})
+            state = job.get("state", {})
+            
+            # Calculate next run time
+            next_run = state.get("nextRunAtMs")
+            if next_run:
+                from datetime import datetime
+                next_dt = datetime.fromtimestamp(next_run / 1000)
+                next_run_str = next_dt.strftime("%Y-%m-%d %H:%M %Z")
+            else:
+                next_run_str = "Not scheduled"
+            
+            # Get schedule info
+            if schedule.get("kind") == "cron":
+                schedule_str = f"{schedule.get('expr', 'N/A')} ({schedule.get('tz', 'UTC')})"
+            elif schedule.get("kind") == "every":
+                every_ms = schedule.get("everyMs", 0)
+                hours = every_ms / 3600000
+                schedule_str = f"Every {hours:.0f} hour(s)"
+            else:
+                schedule_str = "Unknown"
+            
+            result.append({
+                "id": job.get("id", ""),
+                "name": job.get("name", "Unnamed Job"),
+                "enabled": job.get("enabled", False),
+                "schedule": schedule_str,
+                "next_run": next_run_str,
+                "last_status": state.get("lastStatus", "never"),
+                "last_run": state.get("lastRunAtMs"),
+            })
+        
+        return result
+    except Exception as e:
+        print(f"Error reading cron jobs: {e}")
+        return []
     """Read sessions directly from OpenClaw's session file."""
     sessions_file = Path("/root/.openclaw/agents/main/sessions/sessions.json")
     if not sessions_file.exists():
@@ -130,12 +191,8 @@ def get_tasks() -> dict[str, list[dict[str, Any]]]:
             if info["type"] in ["cron", "subagent"]:
                 done.append(session_data)
     
-    # Scheduled = cron jobs that are configured (not necessarily running)
-    # Todo = tasks queued for agents (could be from a queue system in future)
-    scheduled = [
-        {"id": "cron-market-am", "title": "Asian Markets Morning Update", "model": "cron", "type": "scheduled"},
-        {"id": "cron-market-pm", "title": "Asian Markets Evening Update", "model": "cron", "type": "scheduled"},
-    ]
+    # Scheduled = cron jobs from OpenClaw config
+    scheduled = get_cron_jobs()
     todo = []
     
     return {

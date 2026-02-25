@@ -229,18 +229,35 @@
                 const taskList = tasks[key] || [];
                 document.getElementById(config.count).textContent = `(${taskList.length})`;
                 document.getElementById(config.el).innerHTML = taskList.length
-                    ? taskList.map(t => `
-                        <div class="task-card text-sm">
-                            <div class="font-medium">${t.title || 'Untitled'}</div>
-                            <div class="text-xs text-gray-400 mt-1">
-                                <span class="text-blue-400">${t.model || 'unknown'}</span>
-                                <span class="mx-1">·</span>
-                                <span>${t.age || '?'}</span>
-                                ${t.tokens ? `<span class="mx-1">·</span><span>${t.tokens.toLocaleString()} tokens</span>` : ''}
+                    ? taskList.map(t => {
+                        // Scheduled jobs have different fields
+                        if (t.schedule) {
+                            return `
+                                <div class="task-card text-sm">
+                                    <div class="font-medium">${t.name || t.title || 'Untitled'}</div>
+                                    <div class="text-xs text-gray-400 mt-1">
+                                        <span class="text-cyan-400">⏰ ${t.schedule}</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Next: ${t.next_run || 'N/A'} · Last: ${t.last_status || 'never'}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        // Regular task cards
+                        return `
+                            <div class="task-card text-sm">
+                                <div class="font-medium">${t.title || 'Untitled'}</div>
+                                <div class="text-xs text-gray-400 mt-1">
+                                    <span class="text-blue-400">${t.model || 'unknown'}</span>
+                                    <span class="mx-1">·</span>
+                                    <span>${t.age || '?'}</span>
+                                    ${t.tokens ? `<span class="mx-1">·</span><span>${t.tokens.toLocaleString()} tokens</span>` : ''}
+                                </div>
+                                ${t.channel ? `<div class="text-xs text-gray-500 mt-1">📱 ${t.channel}</div>` : ''}
                             </div>
-                            ${t.channel ? `<div class="text-xs text-gray-500 mt-1">📱 ${t.channel}</div>` : ''}
-                        </div>
-                    `).join('')
+                        `;
+                    }).join('')
                     : '<p class="text-gray-600 text-sm">No tasks</p>';
             }
         }
