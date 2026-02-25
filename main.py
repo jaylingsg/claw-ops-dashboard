@@ -64,6 +64,17 @@ def get_cron_jobs() -> list[dict[str, Any]]:
                 from datetime import datetime
                 next_dt = datetime.fromtimestamp(next_run / 1000)
                 next_run_str = next_dt.strftime("%Y-%m-%d %H:%M %Z")
+            elif schedule.get("kind") == "every":
+                # Calculate from last run + interval
+                every_ms = schedule.get("everyMs", 3600000)
+                last_run = state.get("lastRunAtMs")
+                if last_run:
+                    from datetime import datetime
+                    next_ms = last_run + every_ms
+                    next_dt = datetime.fromtimestamp(next_ms / 1000)
+                    next_run_str = next_dt.strftime("%Y-%m-%d %H:%M %Z")
+                else:
+                    next_run_str = "Pending first run"
             else:
                 next_run_str = "Not scheduled"
             
