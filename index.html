@@ -268,9 +268,15 @@
             }
 
             list.innerHTML = agents.map(agent => `
-                <div class="task-card flex items-center justify-between">
-                    <span class="text-sm truncate">${agent.name || agent.id || 'Unknown'}</span>
-                    <span class="text-xs text-gray-500">${agent.status || 'running'}</span>
+                <div class="task-card text-sm">
+                    <div class="font-medium">${agent.label || 'Active Agent'}</div>
+                    <div class="text-xs text-gray-400 mt-1">
+                        <span class="text-blue-400">${agent.model || 'unknown'}</span>
+                        <span class="mx-1">·</span>
+                        <span>${agent.channel || 'direct'}</span>
+                        ${agent.tokens ? `<span class="mx-1">·</span><span>${agent.tokens.toLocaleString()} tokens</span>` : ''}
+                    </div>
+                    ${agent.inputTokens ? `<div class="text-xs text-gray-500 mt-1">In: ${agent.inputTokens.toLocaleString()} · Out: ${agent.outputTokens.toLocaleString()}</div>` : ''}
                 </div>
             `).join('');
         }

@@ -198,7 +198,7 @@ def get_status() -> dict[str, Any]:
 
 @app.get("/api/agents")
 def get_agents() -> list[dict[str, Any]]:
-    """Get all active agents/sessions."""
+    """Get all active agents/sessions with more details."""
     sessions = get_sessions()
     now = datetime.now()
     five_min_ago = now - timedelta(minutes=5)
@@ -218,13 +218,20 @@ def get_agents() -> list[dict[str, Any]]:
             is_active = False
         
         if is_active:
+            origin = session.get("origin", {})
+            origin_label = origin.get("label", "") if isinstance(origin, dict) else ""
+            
             active.append({
                 "id": session.get("sessionId", key[:16]),
                 "key": key,
                 "model": session.get("model", "unknown"),
-                "label": session.get("label", info["label"]),
+                "label": origin_label or session.get("label", info["label"]),
                 "type": info["type"],
                 "updatedAt": updated_at,
+                "tokens": session.get("totalTokens", 0),
+                "inputTokens": session.get("inputTokens", 0),
+                "outputTokens": session.get("outputTokens", 0),
+                "channel": session.get("lastChannel", session.get("chatType", "unknown")),
             })
     
     return active
