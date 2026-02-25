@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claw Ops Board</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --card-bg: #1a1d27;
+            --border: #2a2f3a;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --todo: #ef4444;
+            --in-progress: #f59e0b;
+            --done: #22c55e;
+            --blocked: #a855f7;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        .kanban-col {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            min-height: 200px;
+        }
+
+        .task-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .task-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-up { background: #22c55e; }
+        .status-down { background: #ef4444; }
+
+        .col-todo { border-top: 3px solid var(--todo); }
+        .col-in-progress { border-top: 3px solid var(--in-progress); }
+        .col-done { border-top: 3px solid var(--done); }
+        .col-blocked { border-top: 3px solid var(--blocked); }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .health-item {
+            background: var(--card-bg);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* Mobile-first: horizontal scroll for kanban */
+        .kanban-board {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .kanban-board > div {
+            min-width: 280px;
+            flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+            .kanban-board {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                overflow-x: visible;
+            }
+        }
+
+        .refresh-indicator {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Prevent horizontal scroll on mobile */
+        body {
+            overflow-x: hidden;
+        }
+    </style>
+</head>
+<body class="p-3 pb-20">
+    <!-- Header -->
+    <header class="mb-4 flex items-center justify-between">
+        <h1 class="text-xl font-bold text-white">Claw Ops Board</h1>
+        <div class="flex items-center gap-3">
+            <span class="refresh-indicator" id="lastRefresh"></span>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="status-dot" id="sessionDot"></span>
+                <span id="sessionCount">0 sessions</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Service Health Grid -->
+    <section class="mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 mb-2">Service Health</h2>
+        <div class="health-grid" id="healthGrid">
+            <!-- Populated by JS -->
+        </div>
+    </section>
+
+    <!-- Kanban Board -->
+    <section>
+        <h2 class="text-sm font-semibold text-gray-400 mb-2">Tasks</h2>
+        <div class="kanban-board">
+            <!-- Todo -->
+            <div class="kanban-col col-todo p-3">
+                <h3 class="font-semibold text-red-400 mb-3 flex items-center gap-2">
+                    <span class="status-dot bg-red-500"></span>
+                    Todo
+                    <span class="text-xs text-gray-500" id="todoCount">(0)</span>
+                </h3>
+                <div id="todoTasks"></div>
+            </div>
+
+            <!-- In Progress -->
+            <div class="kanban-col col-in-progress p-3">
+                <h3 class="font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                    <span class="status-dot bg-amber-500"></span>
+                    In Progress
+                    <span class="text-xs text-gray-500" id="inProgressCount">(0)</span>
+                </h3>
+                <div id="inProgressTasks"></div>
+            </div>
+
+            <!-- Done -->
+            <div class="kanban-col col-done p-3">
+                <h3 class="font-semibold text-green-400 mb-3 flex items-center gap-2">
+                    <span class="status-dot bg-green-500"></span>
+                    Done
+                    <span class="text-xs text-gray-500" id="doneCount">(0)</span>
+                </h3>
+                <div id="doneTasks"></div>
+            </div>
+
+            <!-- Blocked -->
+            <div class="kanban-col col-blocked p-3">
+                <h3 class="font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                    <span class="status-dot bg-purple-500"></span>
+                    Blocked
+                    <span class="text-xs text-gray-500" id="blockedCount">(0)</span>
+                </h3>
+                <div id="blockedTasks"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Active Agents -->
+    <section class="mt-4">
+        <h2 class="text-sm font-semibold text-gray-400 mb-2">Active Sub-Agents</h2>
+        <div id="agentsList" class="space-y-2">
+            <p class="text-sm text-gray-500">No active agents</p>
+        </div>
+    </section>
+
+    <script>
+        const API_BASE = '';
+
+        async function fetchData() {
+            try {
+                const [tasksRes, healthRes, statusRes, agentsRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/tasks`),
+                    fetch(`${API_BASE}/api/health`),
+                    fetch(`${API_BASE}/api/status`),
+                    fetch(`${API_BASE}/api/agents`)
+                ]);
+
+                const tasks = await tasksRes.json();
+                const health = await healthRes.json();
+                const status = await statusRes.json();
+                const agents = await agentsRes.json();
+
+                renderTasks(tasks);
+                renderHealth(health);
+                renderStatus(status);
+                renderAgents(agents);
+                updateRefreshTime();
+            } catch (err) {
+                console.error('Fetch error:', err);
+            }
+        }
+
+        function renderTasks(tasks) {
+            const columns = {
+                todo: { el: 'todoTasks', count: 'todoCount' },
+                in_progress: { el: 'inProgressTasks', count: 'inProgressCount' },
+                done: { el: 'doneTasks', count: 'doneCount' },
+                blocked: { el: 'blockedTasks', count: 'blockedCount' }
+            };
+
+            for (const [key, config] of Object.entries(columns)) {
+                const taskList = tasks[key] || [];
+                document.getElementById(config.count).textContent = `(${taskList.length})`;
+                document.getElementById(config.el).innerHTML = taskList.length
+                    ? taskList.map(t => `<div class="task-card text-sm">${t.title}</div>`).join('')
+                    : '<p class="text-gray-600 text-sm">No tasks</p>';
+            }
+        }
+
+        function renderHealth(health) {
+            const grid = document.getElementById('healthGrid');
+            grid.innerHTML = Object.entries(health).map(([name, data]) => `
+                <div class="health-item flex items-center justify-between">
+                    <span class="truncate">${name}</span>
+                    <span class="status-dot ${data.status === 'up' ? 'status-up' : 'status-down'}"></span>
+                </div>
+            `).join('');
+        }
+
+        function renderStatus(status) {
+            document.getElementById('sessionCount').textContent = `${status.active_sessions} sessions`;
+            document.getElementById('sessionDot').className = `status-dot ${status.active_sessions > 0 ? 'status-up' : 'status-down'}`;
+        }
+
+        function renderAgents(agents) {
+            const list = document.getElementById('agentsList');
+            if (!agents || agents.length === 0) {
+                list.innerHTML = '<p class="text-sm text-gray-500">No active agents</p>';
+                return;
+            }
+
+            list.innerHTML = agents.map(agent => `
+                <div class="task-card flex items-center justify-between">
+                    <span class="text-sm truncate">${agent.name || agent.id || 'Unknown'}</span>
+                    <span class="text-xs text-gray-500">${agent.status || 'running'}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateRefreshTime() {
+            const now = new Date();
+            document.getElementById('lastRefresh').textContent = `Updated ${now.toLocaleTimeString()}`;
+        }
+
+        // Initial fetch
+        fetchData();
+
+        // Auto-refresh every 10 seconds
+        setInterval(fetchData, 10000);
+    </script>
+</body>
+</html>
